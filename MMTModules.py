@@ -5,7 +5,30 @@ def calculate_crosstalk(det_dict, coupling_dict, freqs, pixel_size, perc_corr, N
     import matplotlib.pyplot as plt
     
     '''
-    calculates the 3x3 IQU coupling matrix given a crosstalk matrix 'coupling_dict' and a detector layout specified in det_dict
+    calculates and returns the 3x3 beam coupling matrix given a crosstalk matrix (coupling_dict) and a detector layout specified in det_dict. Then convolves the pixel beam matrix components with the instrument beam and plots the beam coupling matrix in real space on a log scale.
+    
+    
+    Inputs:
+    ****************************************************************************
+    det_dict [dictionary]: dictionary containing identifying information for the detectors in the focal plane
+    coupling_dict [dictionary]: crosstalk matrix defining the detector to detector coupling
+    freqs [2D array]: list of band frequencies being considered for the analysis
+    pixel_size [float]: size of each pixel in arcmin
+    perc_corr [float]: percent to which the crosstalk signal is correlated to the carrier signal
+    N [int]: number of pixels along a map edge
+    beam_fwhm [float]: 3dB point of gaussian beam
+    sky_decomp [1D array]: a list of either the linear decomposition of the sky signal in IQU space or CMB realizations of I, Q, and U maps without instrument and observation effects
+    TtoP_suppress [boolean]: sets the central value of T->P coupling maps to zero in where it otherwise may not be due to an imbalance of pair-differenced detectors
+    delta_ell [int]: bin size of power spectra in ell
+    ell_max [int]: maximum ell of power spectra calculation
+    choose_normalization [string or 0]: if string it will be a key of the autospectra (TT for example), this will normalize every leakage spectra to the peak of this particular autospectra. If 0 is entered, each spectra is peak normalized.
+    unconvolved_beams [dictionary]: *Deprecated do not use*
+    ****************************************************************************
+    
+    Outputs:
+    ****************************************************************************
+    convolved_coupled_beams [dictionary]: 3x3 beam coupling matrix
+    ****************************************************************************
     '''
     
     #frequency under question
@@ -58,38 +81,56 @@ def calculate_crosstalk(det_dict, coupling_dict, freqs, pixel_size, perc_corr, N
 
     #II
     ax[0,0].imshow(10. * np.log(np.abs(convolved_coupled_beams['II']) + eta),vmin=vmin,vmax=vmax)
+    ax[0,0].set_xlabel('X Pixel')
+    ax[0,0].set_ylabel('Y Pixel')
     ax[0,0].set_title('II Beam')
     
     #IQ
     ax[0,1].imshow(10. * np.log(np.abs(convolved_coupled_beams['IQ']) + eta),vmin=vmin,vmax=vmax)
+    ax[0,1].set_xlabel('X Pixel')
+    ax[0,1].set_ylabel('Y Pixel')
     ax[0,1].set_title('IQ Beam')
 
     #IU
     ax[0,2].imshow(10. * np.log(np.abs(convolved_coupled_beams['IU']) + eta),vmin=vmin,vmax=vmax)
+    ax[0,2].set_xlabel('X Pixel')
+    ax[0,2].set_ylabel('Y Pixel')
     ax[0,2].set_title('IU beam')
 
     #QI
     ax[1,0].imshow(10.*np.log(np.abs(convolved_coupled_beams['QI']) + eta),vmin=vmin,vmax=vmax)
+    ax[1,0].set_xlabel('X Pixel')
+    ax[1,0].set_ylabel('Y Pixel')
     ax[1,0].set_title('QI beam')
 
     #QQ
     ax[1,1].imshow(10. * np.log(np.abs(convolved_coupled_beams['QQ']) + eta),vmin=vmin,vmax=vmax)
+    ax[1,1].set_xlabel('X Pixel')
+    ax[1,1].set_ylabel('Y Pixel')
     ax[1,1].set_title('QQ beam')
 
     #QU
     ax[1,2].imshow(10. * np.log(np.abs(convolved_coupled_beams['QU']) + eta),vmin=vmin,vmax=vmax)
+    ax[1,2].set_xlabel('X Pixel')
+    ax[1,2].set_ylabel('Y Pixel')
     ax[1,2].set_title('QU beam')
 
     #UI
     ax[2,0].imshow(10. * np.log(np.abs(convolved_coupled_beams['UI']) + eta),vmin=vmin,vmax=vmax)
+    ax[2,0].set_xlabel('X Pixel')
+    ax[2,0].set_ylabel('Y Pixel')
     ax[2,0].set_title('UI beam')
 
     #UQ
     ax[2,1].imshow(10. * np.log(np.abs(convolved_coupled_beams['UQ']) + eta),vmin=vmin,vmax=vmax)
+    ax[2,1].set_xlabel('X Pixel')
+    ax[2,1].set_ylabel('Y Pixel')
     ax[2,1].set_title('UQ beam')
 
     #UU
     ax[2,2].imshow(10. * np.log(np.abs(convolved_coupled_beams['UU']) + eta),vmin=vmin,vmax=vmax)
+    ax[2,2].set_xlabel('X Pixel')
+    ax[2,2].set_ylabel('Y Pixel')
     ax[2,2].set_title('UU beam')
     plt.savefig("Beam Matrix.png")
     plt.show()
@@ -97,12 +138,34 @@ def calculate_crosstalk(det_dict, coupling_dict, freqs, pixel_size, perc_corr, N
     return convolved_coupled_beams
 
 def get_leakage_spectra(convolved_coupled_beams, pixel_size, N, beam_fwhm, sky_decomp, delta_ell, ell_max, choose_normalization):
+    
+    '''
+    from a given beam coupling matrix, calculates the detector measurements of I, Q, and U maps using the sky_decomp, takes the 2D FFT and azimuthally averages to power spectra. This function does not deconvolve the delta function bias that is present in get_leakage_beams. This function then plots the 1D spectra along with the instrument beam provided by the input parameters with a user defined normalization chosen by choose_normalization.
+    
+    returns plots and leakage spectra which are convolved with E and B maps (NOT solely the leakage beams!). returns an array of binned ells and a dictionary of spectra TT, EE, BB, TE, TB, and EB
+    
+    Inputs:
+    ****************************************************************************
+    convolved_coupled_beams [dictionary]: 3x3 beam coupling matrix
+    pixel_size [float]: size of each pixel in arcmin
+    N [int]: number of pixels along a map edge
+    beam_fwhm [float]: 3dB point of gaussian beam
+    sky_decomp [1D array]: a list of either the linear decomposition of the sky signal in IQU space or CMB realizations of I, Q, and U maps without instrument and observation effects
+    delta_ell [int]: bin size for calculating power spectra
+    ell_max [int]: maximum ell for power spectra calculation
+    choose_normalization [str or 0]: if string it will be a key of the autospectra (TT for example), this will normalize every leakage spectra to the peak of this particular autospectra. If 0 is entered, each spectra is peak normalized.
+    ****************************************************************************
+    
+    Outputs:
+    ****************************************************************************
+    binned_ell [1D array]: array of ell bins for averaging map powers
+    binned_spectra_dict [dictionary]: dictionary of TT, TE, EE, etc spectra
+    ****************************************************************************
+    '''
+    
     import numpy as np
     import matplotlib.pyplot as plt
     
-    '''
-    returns plots and leakage spectra which are convolved with E and B maps (NOT solely the leakage beams!). returns an array of binned ells and a dictionary of spectra TT, EE, BB, TE, TB, and EB
-    '''
     
     #make instrument beam
     inst_beam_1 = offset_2d_gaussian_beam(N, pixel_size, beam_fwhm,0,0)
@@ -244,7 +307,29 @@ def get_leakage_beams(convolved_coupled_beams, beam_matrix, pixel_size, N, beam_
     import numpy as np
     import matplotlib.pyplot as plt
     
-    '''returns TT, EE, BB beams and leakage TE, TB, and EB beams'''
+    '''
+    takes the 3x3 beam matrix (convolved_coupled_beams in this case) and generates the detector realization in IQU space using sky_decomp. Then calculates the delta function bias of the polarization components using beam matrix, which is the unconvolved form of convolved_coupled_beams that does not include the instrument beam. These pixel maps are used to deconvolve the delta function bias from the E and B maps. From here the T, E, and B maps are calculated from the detector maps and binned to 1D spectra. These spectra are then normalized in a particular manner by the user's choosing. 
+    
+    returns TT, EE, BB beams and leakage TE, TB, and EB beams
+    
+    Inputs:
+    ****************************************************************************
+    convolved_coupled_beams [dictionary]: 
+    beam_matrix [dictionary]: 
+    pixel_size [float]: size of each pixel in arcmin
+    N [int]: number of pixels along edge of map
+    beam_fwhm [float]: 3dB point width of gaussian beam
+    sky_decomp [1D array]: either list of floats detailing magnitude of IQU stokes components in IQU space or a collection of CMB realized I, Q, and U maps
+    delta_ell [int]: size of each spectral bin in ell
+    ell_max [int]: maximum ell to go out to in binning procedure
+    choose_normalization [string or 0]: if string it will be a key of the autospectra (TT for example), this will normalize every leakage spectra to the peak of this particular autospectra. If 0 is entered, each spectra is peak normalized.
+    ****************************************************************************
+    
+    Outputs:
+    ****************************************************************************
+    
+    ****************************************************************************
+    '''
     
     #make instrument beam
     inst_beam_1 = offset_2d_gaussian_beam(N, pixel_size, beam_fwhm,0,0)
@@ -386,6 +471,25 @@ def get_leakage_beams(convolved_coupled_beams, beam_matrix, pixel_size, N, beam_
 
 def convolve_pixel_with_beams(beam_matrix, N, pixel_size, beam_fwhm):
     
+    '''
+    convolves each component of the beam coupling matrix with a gaussian instrument beam and plots
+    
+    returns NA
+    
+    Inputs:
+    ****************************************************************************
+    beam_matrix [dictionary]: beam coupling matrix in IQU space
+    N [int]: number of pixels along each side of map
+    pixel_size [float]: size of each pixel in arcmin
+    beam_fwhm [float]: 3dB point of gaussian instrument beam
+    ****************************************************************************
+    
+    Outputs:
+    ****************************************************************************
+    NA
+    ****************************************************************************
+    '''
+    
     #convolve with instrument beam and organize into dictionaries
     coupled_beams = {}
     inst_beam_1 = offset_2d_gaussian_beam(N, pixel_size, beam_fwhm,0,0)
@@ -447,7 +551,32 @@ def convolve_pixel_with_beams(beam_matrix, N, pixel_size, beam_fwhm):
 
 
 def plot_convolved_beams(det_dict, coupling_dict, freq1, freq2, pixel_size, perc_corr, N, beam_fwhm, TtoP_suppress):
-
+    
+    '''
+    calculates the beams and then plots the 3x3 beam coupling matrix in real spcae on a log scale
+    
+    returns NA
+    
+    Inputs:
+    ****************************************************************************
+    det_dict [dictionary]: dictionary containing identifying information for the detectors in the focal plane
+    coupling_dict [dictionary]: crosstalk matrix defining detector to detector coupling
+    freq1 [float]: first band frequency 
+    freq2 [float]: second band frequency
+    pixel_size [float]: size of each pixel in arcmin
+    perc_corr [float]: percent to which the detectors are coupling to each other
+    N [int]: number of pixels along side of maps
+    beam_fwhm [float]: the 3dB point of instrument beams
+    TtoP_suppress [boolean]: sets the central value of T->P coupling maps to zero in where it otherwise may not be due to an imbalance of pair-differenced detectors
+    ****************************************************************************
+    
+    Outputs:
+    ****************************************************************************
+    NA
+    ****************************************************************************
+    '''
+    
+    
     #calculate the beam matrix given a crosstalk matrix
     beam_matrix = calculate_beam_matrix(det_dict, coupling_dict, freq1, freq2, pixel_size, perc_corr, N, TtoP_suppress = TtoP_suppress)
     II_total = beam_matrix['II']
@@ -533,6 +662,31 @@ def plot_convolved_beams(det_dict, coupling_dict, freq1, freq2, pixel_size, perc
 
 
 def calculate_beam_matrix(det_dict, coupling_dict, freq1, freq2, pixel_size, perc_corr, N, TtoP_suppress = False, to_fft=False):
+    
+    '''
+    calculates the 3x3 beam coupling matrix in IQU space
+    
+    returns a dictionary of the beam coupling matrix
+    
+    Inputs:
+    ****************************************************************************
+    det_dict [dictionary]: dictionary containing identifying information for the detectors in the focal plane
+    coupling_dict [dictionary]: crosstalk matrix that defines the detector to detector coupling
+    freq1 [float]: first band frequency in consideration
+    freq2 [float]: second band frequency in consideration
+    pixel_size [float]: size of each pixel in map in arcmin
+    perc_corr [float]: percent to which the detectors are coupled relative to the signal
+    N [int]: number of pixels along edge of map
+    TtoP_suppress [boolean]: if True the function sets the central values of the T->P coupling maps to zero where it may otherwise be nonzero due to an imbalance of pair-differenced orthogonal detectors on the focal plane. False does nothing
+    to_fft [boolean]: *depcrecated does not do anything
+    ****************************************************************************
+    
+    Outputs:
+    ****************************************************************************
+    beam_matrix [dictionary]: 3x3 beam coupling matrix in IQU space
+    ****************************************************************************
+    '''
+    
     import numpy as np
     import time
    
@@ -824,7 +978,20 @@ def calculate_beam_matrix(det_dict, coupling_dict, freq1, freq2, pixel_size, per
 
 def return_IQU_fft(sky_decomposition, beam_matrix):
     '''
-    returns fft of IQU before convolution with the beam for later deprojection
+    returns tuple of fft of IQU pixel maps without the instrument beam for later deconvolution of delta function biases
+    
+    Inputs:
+    ****************************************************************************
+    sky_decomposition [1D array]: the decomposition of the sky signal in IQU space
+    beam_matrix [dictionary]: the 3x3 beam coupling matrix in IQU space
+    ****************************************************************************
+    
+    Outputs:
+    ****************************************************************************
+    I_fft [2D array]: The 2D FFT of the pixel beam I that the focal plane sees
+    Q_fft [2D array]: The 2D FFT of the pixel beam Q that the focal plane sees
+    U_fft [2D array]: The 2D FFT of the pixel beam U that the focal plane sees
+    ****************************************************************************
     '''
     import numpy as np
                            
@@ -841,6 +1008,23 @@ def return_IQU_fft(sky_decomposition, beam_matrix):
     return (I_fft, Q_fft, U_fft)
 
 def generate_random_coupling(det_dict):
+    
+    '''
+    generates a crosstalk matrix detailing detector to detector coupling via a random mechanism. This means each detector is coupled to one other random detector in the focal plane
+    
+    returns the crosstalk matrix for random coupling
+    
+    Inputs:
+    ****************************************************************************
+    det_dict [dictionary]: dictionary containing identifying information on the detectors in the focal plane
+    ****************************************************************************
+    
+    Outputs:
+    ****************************************************************************
+    coupling_dict [dictionary]: the crosstalk matrix defining the detector to detector coupling
+    ****************************************************************************
+    '''
+    
     import numpy.random as random
    
     
@@ -856,6 +1040,25 @@ def generate_random_coupling(det_dict):
     return coupling_dict
 
 def generate_focal_plane_distribution(path_to_positions, num_det, freqs, rescale):
+    
+    '''
+    generates the focal plane distribution given by the associated input text file
+    
+    returns a dictionary of identifying information for each detector including numerology, position, band frequency, polarization angle, and signal magnitude
+    
+    Inputs:
+    ****************************************************************************
+    path_to_positions [string]: the path and filename to find where the text file containing the positional information is located for the focal plane
+    num_det [int]: the number of detectors
+    freqs [1D array]: array of band frequencies
+    rescale [float]: amount to globally scale the positions relative to the center of the focal plane
+    ****************************************************************************
+    
+    Outputs:
+    ****************************************************************************
+    det_dict [dictionary]: dictionary of identifying information for detectors in focal plane
+    ****************************************************************************
+    '''
     
     import pandas as pd
     import numpy as np
@@ -963,6 +1166,23 @@ def generate_focal_plane_distribution(path_to_positions, num_det, freqs, rescale
 
 def kill_pixels(det_IDs, det_dict):
     
+    '''
+    eliminates the signal for a list of detectors present in a focal plane
+    
+    returns the detector dictionary updated with the associated killed detectors
+    
+    Inputs:
+    ****************************************************************************
+    det_IDs [1D array]: array of detectors indexed by identifying number who's signal should be killed
+    det_dict [dictionary]: dictionary of identifying information for each detector in a focal plane
+    ****************************************************************************
+    
+    Outputs:
+    ****************************************************************************
+    det_dict [dictionary]: updated dictionary of identifying information for each detector in a focal plane
+    ****************************************************************************
+    '''
+    
     for det_ID in det_IDs:
         for freq in det_dict.keys():
             for det in det_dict[freq].keys():
@@ -974,12 +1194,32 @@ def kill_pixels(det_IDs, det_dict):
 
 #for rhombus layout
 def map_det_pos_to_bondpads(det_dict, num_det_per_rhom = 576, num_bond_sets_per_side=12):
-       
+    
+    '''
+    *deprecated do not use*
+    '''
     
     return
 
 
 def generate_bondpad_coupling_rhombus(det_dict):
+    
+    '''
+    generates the crosstalk matrix for wafers fabricated in the rhombus layout
+    
+    returns the crosstalk matrix defining the detector to detector coupling for a rhombus layout wafer where detectors in adjacent SQUID readout columns are coupled
+    
+    Inputs:
+    ****************************************************************************
+    det_dict [dictionary]: the dictionary containing the identifying information for each detector
+    ****************************************************************************
+    
+    Outputs:
+    ****************************************************************************
+    coupling_dict [dictionary]: the crosstalk matrix defining the detector to detector coupling
+    ****************************************************************************
+    '''
+    
     import numpy as np
     
     #organize pixel indices into readout columns for rhombus layout
@@ -1102,6 +1342,26 @@ def generate_bondpad_coupling_rhombus(det_dict):
 
 
 def generate_random_focal_plane_distribution(path_to_positions, num_det, freqs, rescale):
+    
+    '''
+    generates a dictionary for a focal plane with a random distribution of x-y and a-b polarization angle detectors
+    
+    returns a dictionary containing the identifying information for each detector including numerology, position, band frequency, polarization angle, and signal magnitude
+    
+    Inputs:
+    ****************************************************************************
+    path_to_positions [string]: the file path, including the filename, that contains the information of how the detectors are placed on the sky
+    num_det [int]: number of detectors
+    freqs [float]: list of band frequencies there is positional information for
+    rescale [float]: factor to scale the position data on the sky
+    ****************************************************************************
+    
+    Outputs:
+    ****************************************************************************
+    det_dict [dictionary]: dictionary of identifying information for each detector including numerology, position, band frequency, polarization angle, and signal magnitude
+    ****************************************************************************
+    '''
+    
     import pandas as pd
     import numpy as np
     import random
@@ -1177,6 +1437,24 @@ def generate_random_focal_plane_distribution(path_to_positions, num_det, freqs, 
 
 #############################################Beam Modules################################################
 def convolve_pixel_instrument(beam_map, inst_beam_map):
+    
+    '''
+    convolves the pixel beam map with the instrument beam
+    
+    returns the convolved map in real space
+    
+    Inputs:
+    ****************************************************************************
+    beam_map [2D array]: the pixel beam map without the gaussian instrument beam that includes systematics
+    inst_beam_map [2D array]: the instrument beam generated for this analysis
+    ****************************************************************************
+    
+    Outputs:
+    ****************************************************************************
+    convolved_map [2D array]: the map that convolves the instrument beam map with the pixel beam map
+    ****************************************************************************
+    '''
+    
     import numpy as np
     #fft of beam_map
     beam_map_fft = np.fft.fft2(np.fft.fftshift(beam_map))
@@ -1191,6 +1469,25 @@ def convolve_pixel_instrument(beam_map, inst_beam_map):
  
 
 def make_2d_gaussian_beam(N,pix_size,beam_size_fwhp):
+    
+    '''
+    generates a gaussian beam
+    
+    returns a 2D array gaussian beam map
+    
+    Inputs:
+    ****************************************************************************
+    N [int]: number of pixels along the edge of the map
+    pix_size [float]: size of each pixel in arcmin
+    beam_size_fwhp [float]: -3 dB point width of gaussian in arcmin
+    ****************************************************************************
+    
+    Outputs:
+    ****************************************************************************
+    gaussian [2D array]: gaussian beam map
+    ****************************************************************************
+    '''
+    
     import numpy as np
      # make a 2d coordinate system
     N=int(N)
@@ -1212,6 +1509,27 @@ def make_2d_gaussian_beam(N,pix_size,beam_size_fwhp):
  
     
 def offset_2d_gaussian_beam(N, pix_size, pixel_beam_fwhp, x_offset, y_offset):
+    
+    '''
+    generates a 2D gaussian beam in real space and contains the ability to offset the center of the beam relative to the map center
+    
+    returns the offset gaussian beam
+    
+    Inputs:
+    ****************************************************************************
+    N [int]: number of pixels along the side of the map
+    pix_size [float]: size of each pixel in arcmin
+    pixel_beam_fwhp [float]: -3 dB point of gaussian beam in arcmin
+    x_offset [float]: magnitude of offset along the x axis in arcmin
+    y_offset [float]: magnitude of offset along the y axis in arcmin
+    ****************************************************************************
+    
+    Outputs:
+    ****************************************************************************
+    pixel_beam [2D array]: offset gaussian beam map
+    ****************************************************************************
+    '''
+    
     import numpy as np
     # make a 2d coordinate system
     N=int(N)
@@ -1236,6 +1554,9 @@ def offset_2d_gaussian_beam(N, pix_size, pixel_beam_fwhp, x_offset, y_offset):
 #############################################Crosstalk Modules################################################
 
 def crosstalk_pix_map(det, det_dict, coupling_dict, freq1, freq2, perc_corr, empty_beam_map, pixel_size):
+    
+    '''*Deprecated, Do not use*'''
+    
     import math
     import numpy as np
     #number of pixels on each map edge
@@ -1284,6 +1605,33 @@ def crosstalk_pix_map(det, det_dict, coupling_dict, freq1, freq2, perc_corr, emp
     return pixel_map_x, pixel_map_y, pixel_map_a, pixel_map_b
 
 def crosstalk_pix_map_pureEx(det, det_dict, coupling_dict, freq1, freq2, perc_corr, empty_beam_map, pixel_size):
+    
+    '''
+    calculates the crosstalk contribution to the global on sky (x) axis from a particular detector. the contribution is calculated by the trigonometry from the alignment of the detector, cross detector with the global x, y, a, b axes. 
+    
+    returns pixel maps with the new crosstalk contribution position and magnitude added
+    
+    Inputs:
+    ****************************************************************************
+    det [int]: the identifying number of the detector in question being crosstalked to
+    det_dict [dictionary]: focal plane information storing detector number along with frequency response, angle relative to global sky coordinates, and signal magnitude
+    coupling_dict [dictionary]: the crosstalk matrix that defines the detector to detector coupling
+    freq1 [int]: first frequency being considered
+    freq2 [int]: second frequency being considered, for crosstalk between adjacent bands these two numbers would be different
+    perc_corr [float]: the percent to which the signals of the detectors are correlated
+    empty_beam_map [2D array]: a copy of null beam maps to size the pixel beam maps appropriately
+    pixel_size [float]: size of each pixel in the map in arcmin
+    ****************************************************************************
+    
+    Outputs:
+    ****************************************************************************
+    pixel_map_x [2D array]: contribution of this detector and crosstalk signal along the global sky x axis
+    pixel_map_y [2D array]: contribution of this detector and crosstalk signal along the global sky y axis
+    pixel_map_a [2D array]: contribution of this detector and crosstalk signal along the global sky a axis
+    pixel_map_b [2D array]: contribution of this detector and crosstalk signal along the global sky b axis
+    ****************************************************************************
+    '''
+    
     import numpy as np
     import math
     
@@ -1330,6 +1678,33 @@ def crosstalk_pix_map_pureEx(det, det_dict, coupling_dict, freq1, freq2, perc_co
     return pixel_map_x, pixel_map_y, pixel_map_a, pixel_map_b
 
 def crosstalk_pix_map_pureEy(det, det_dict, coupling_dict, freq1, freq2, perc_corr, empty_beam_map, pixel_size):
+    
+    '''
+    calculates the crosstalk contribution to the global on sky (y) axis from a particular detector. the contribution is calculated by the trigonometry from the alignment of the detector, cross detector with the global x, y, a, b axes. 
+    
+    returns pixel maps with the new crosstalk contribution position and magnitude added
+    
+    Inputs:
+    ****************************************************************************
+    det [int]: the identifying number of the detector in question being crosstalked to
+    det_dict [dictionary]: focal plane information storing detector number along with frequency response, angle relative to global sky coordinates, and signal magnitude
+    coupling_dict [dictionary]: the crosstalk matrix that defines the detector to detector coupling
+    freq1 [int]: first frequency being considered
+    freq2 [int]: second frequency being considered, for crosstalk between adjacent bands these two numbers would be different
+    perc_corr [float]: the percent to which the signals of the detectors are correlated
+    empty_beam_map [2D array]: a copy of null beam maps to size the pixel beam maps appropriately
+    pixel_size [float]: size of each pixel in the map in arcmin
+    ****************************************************************************
+    
+    Outputs:
+    ****************************************************************************
+    pixel_map_x [2D array]: contribution of this detector and crosstalk signal along the global sky x axis
+    pixel_map_y [2D array]: contribution of this detector and crosstalk signal along the global sky y axis
+    pixel_map_a [2D array]: contribution of this detector and crosstalk signal along the global sky a axis
+    pixel_map_b [2D array]: contribution of this detector and crosstalk signal along the global sky b axis
+    ****************************************************************************
+    '''
+    
     import numpy as np
     import math
     
@@ -1379,6 +1754,33 @@ def crosstalk_pix_map_pureEy(det, det_dict, coupling_dict, freq1, freq2, perc_co
     return pixel_map_x, pixel_map_y, pixel_map_a, pixel_map_b
 
 def crosstalk_pix_map_pureEa(det, det_dict, coupling_dict, freq1, freq2, perc_corr, empty_beam_map, pixel_size):
+    
+    '''
+    calculates the crosstalk contribution to the global on sky (a) axis from a particular detector. the contribution is calculated by the trigonometry from the alignment of the detector, cross detector with the global x, y, a, b axes. 
+    
+    returns pixel maps with the new crosstalk contribution position and magnitude added
+    
+    Inputs:
+    ****************************************************************************
+    det [int]: the identifying number of the detector in question being crosstalked to
+    det_dict [dictionary]: focal plane information storing detector number along with frequency response, angle relative to global sky coordinates, and signal magnitude
+    coupling_dict [dictionary]: the crosstalk matrix that defines the detector to detector coupling
+    freq1 [int]: first frequency being considered
+    freq2 [int]: second frequency being considered, for crosstalk between adjacent bands these two numbers would be different
+    perc_corr [float]: the percent to which the signals of the detectors are correlated
+    empty_beam_map [2D array]: a copy of null beam maps to size the pixel beam maps appropriately
+    pixel_size [float]: size of each pixel in the map in arcmin
+    ****************************************************************************
+    
+    Outputs:
+    ****************************************************************************
+    pixel_map_x [2D array]: contribution of this detector and crosstalk signal along the global sky x axis
+    pixel_map_y [2D array]: contribution of this detector and crosstalk signal along the global sky y axis
+    pixel_map_a [2D array]: contribution of this detector and crosstalk signal along the global sky a axis
+    pixel_map_b [2D array]: contribution of this detector and crosstalk signal along the global sky b axis
+    ****************************************************************************
+    '''
+    
     import numpy as np
     import math
     
@@ -1428,6 +1830,33 @@ def crosstalk_pix_map_pureEa(det, det_dict, coupling_dict, freq1, freq2, perc_co
     return pixel_map_x, pixel_map_y, pixel_map_a, pixel_map_b
 
 def crosstalk_pix_map_pureEb(det, det_dict, coupling_dict, freq1, freq2, perc_corr, empty_beam_map, pixel_size):
+    
+    '''
+    calculates the crosstalk contribution to the global on sky (b) axis from a particular detector. the contribution is calculated by the trigonometry from the alignment of the detector, cross detector with the global x, y, a, b axes. 
+    
+    returns pixel maps with the new crosstalk contribution position and magnitude added
+    
+    Inputs:
+    ****************************************************************************
+    det [int]: the identifying number of the detector in question being crosstalked to
+    det_dict [dictionary]: focal plane information storing detector number along with frequency response, angle relative to global sky coordinates, and signal magnitude
+    coupling_dict [dictionary]: the crosstalk matrix that defines the detector to detector coupling
+    freq1 [int]: first frequency being considered
+    freq2 [int]: second frequency being considered, for crosstalk between adjacent bands these two numbers would be different
+    perc_corr [float]: the percent to which the signals of the detectors are correlated
+    empty_beam_map [2D array]: a copy of null beam maps to size the pixel beam maps appropriately
+    pixel_size [float]: size of each pixel in the map in arcmin
+    ****************************************************************************
+    
+    Outputs:
+    ****************************************************************************
+    pixel_map_x [2D array]: contribution of this detector and crosstalk signal along the global sky x axis
+    pixel_map_y [2D array]: contribution of this detector and crosstalk signal along the global sky y axis
+    pixel_map_a [2D array]: contribution of this detector and crosstalk signal along the global sky a axis
+    pixel_map_b [2D array]: contribution of this detector and crosstalk signal along the global sky b axis
+    ****************************************************************************
+    '''
+    
     import numpy as np
     import math
     
@@ -1482,6 +1911,28 @@ def crosstalk_pix_map_pureEb(det, det_dict, coupling_dict, freq1, freq2, perc_co
 ######################################Power Spectrum Modules################################
   
 def get_IQU_fft(Imap, Qmap, Umap, to_plot=False):
+    
+    '''
+    takes the 2D FFT of the focal plane I, Q, U maps and plots the auto and cross maps II, IQ, QU, etc
+    
+    returns the 2D FFT maps
+    
+    Inputs:
+    ****************************************************************************
+    Imap [2D array]: the I map as seen by the focal plane
+    Qmap [2D array]: the Q map as seen by the focal plane
+    Umap [2D array]: the U map as seen by the focal plane
+    to_plot [boolean]: if True, plot the auto and cross maps, if False, do nothing
+    ****************************************************************************
+    
+    Outputs:
+    ****************************************************************************
+    Imap_fft [2D array]: the 2D FFT of the I map
+    Qmap_fft [2D array]: the 2D FFT of the Q map
+    Umap_fft [2D array]: the 2D FFT of the U map
+    ****************************************************************************
+    '''
+    
     import numpy as np
     import matplotlib.pyplot as plt
     
@@ -1514,6 +1965,27 @@ def get_IQU_fft(Imap, Qmap, Umap, to_plot=False):
     
 
 def calculate_2d_spectra(Imap=None,Qmap=None,Umap=None,delta_ell=50,ell_max=5000,pix_size=0.25,N=1024):
+    
+    '''
+    calculates the 2D FFT of the focal plane I, Q, U and converts these to T, E, B space.
+    
+    Inputs:
+    ****************************************************************************
+    Imap [2D array]: the I map detected by the focal plane
+    Qmap [2D array]: the Q map detected by the focal plane
+    Umap [2D array]: the U map detected by the focal plane
+    delta_ell [int]: bin size in ell space 
+    ell_max [int]: maximum ell for binning
+    pix_size [float]: the size of each pixel in arcmin
+    N [float]: number of pixels in a side of a map
+    ****************************************************************************
+    
+    Outputs:
+    ****************************************************************************
+    maps_dict [dictionary of 2D array]: dictionary of 2D FFT maps keyed by TT, TE, EE, etc
+    ****************************************************************************
+    '''
+    
     import numpy as np
     
     N=int(N)
@@ -1541,7 +2013,7 @@ def calculate_2d_spectra(Imap=None,Qmap=None,Umap=None,delta_ell=50,ell_max=5000
     
     if Imap is not None:
         # get the 2d fourier transform of the map
-        #fftshift to shift to center of map, then foureir transform, then fftshift to shift ell=0 to center
+        #fftshift to shift to center of map, then fourier transform, then fftshift to shift ell=0 to center
         Imap_fft = np.fft.fftshift(np.fft.fft2(np.fft.fftshift(Imap)))
         TTmap = np.real(np.conj(Imap_fft) * Imap_fft)
         maps_dict['TT'] = TTmap
@@ -1561,8 +2033,8 @@ def calculate_2d_spectra(Imap=None,Qmap=None,Umap=None,delta_ell=50,ell_max=5000
         #rotate convolved Q and U beams into E and B beams in fourier space
         #Emap = np.divide((Qmap_fft * np.cos(2 * theta_ell ) + Umap_fft * np.sin( 2 * theta_ell )), deproject_angle_E)
         #Bmap = np.divide((-Qmap_fft * np.sin(2 * theta_ell ) + Umap_fft * np.cos( 2 * theta_ell )), deproject_angle_B)
-        Emap = (Qmap_fft * np.cos(2 * theta_ell ) + Umap_fft * np.sin( 2 * theta_ell ))
-        Bmap = (-Qmap_fft * np.sin(2 * theta_ell ) + Umap_fft * np.cos( 2 * theta_ell ))
+        Emap = (Qmap_fft * np.cos( 2 * theta_ell ) + Umap_fft * np.sin( 2 * theta_ell ))
+        Bmap = (-Qmap_fft * np.sin( 2 * theta_ell ) + Umap_fft * np.cos( 2 * theta_ell ))
         
         #if deproject:
         #    assert(unconvolved_beams is not None)
@@ -1601,7 +2073,29 @@ def calculate_2d_leakage_beams(Imap=None, Qmap=None, Umap=None, Qmap_deproj=None
     import numpy as np
     
     '''
-    deconvolved the input E and B maps from the QU maps that aren't convolved with the instrument beam. IQU maps are the same as the above function but the beam matrix is the 3x3 IQU matrix before convolution with the instrument beam. This will be deprojected from the Emap and Bmap to give just the leakage beam without the input map contributions.
+    calculates the 2D FFT's of the detector I, Q, U maps, converts these to T, E, and B space, and deconvolves the delta function bias from the E and B maps
+    
+    *deconvolved the input E and B maps from the QU maps that aren't convolved with the instrument beam. IQU maps are the same as the above function but the beam matrix is the 3x3 IQU matrix before convolution with the instrument beam. This will be deconvolved from the Emap and Bmap to give just the leakage beam without the input map contributions.
+    
+    returns a dictionary of 2D arrays spectra
+    
+    Inputs:
+    ****************************************************************************
+    Imap [2D array]: the real space I map the focal plane detects
+    Qmap [2D array]: the real space Q map the focal plane detects
+    Umap [2D array]: the real space U map the focal plane detects
+    Qmap_deproj [2D array]: the real space Q pixel maps the focal plane detects
+    Umap_deproj [2D array]: the real space U pixel maps the focal plane detects
+    delta_ell [int]: bin size for spectra calculation *deprecated
+    ell_max [int]: maximum ell for spectra calculation *deprecated
+    pix_size [float]: pixel size of the maps in arcmin *deprecated
+    N [int]: number of pixels in map side
+    ****************************************************************************
+    
+    Outputs:
+    ****************************************************************************
+    maps_dict [dictionary of 2D array]: dictionary of 2D ell space maps
+    ****************************************************************************
     '''
     
     N=int(N)
@@ -1659,7 +2153,7 @@ def calculate_2d_leakage_beams(Imap=None, Qmap=None, Umap=None, Qmap_deproj=None
         
         #deproject input maps
         if Qmap_deproj is not None and Umap_deproj is not None:
-            Emap, Bmap = deproject_input_maps(Emap, Bmap, Qmap_deproj_fft, Umap_deproj_fft, theta_ell)    
+            Emap, Bmap = deconvolve_input_maps(Emap, Bmap, Qmap_deproj_fft, Umap_deproj_fft, theta_ell)    
         
         #calculate auto spectra
         EEmap = abs( np.conj(Emap) * Emap )
@@ -1686,6 +2180,27 @@ def calculate_2d_leakage_beams(Imap=None, Qmap=None, Umap=None, Qmap_deproj=None
 
 def bin_maps_to_1d(maps_dict, delta_ell=50, ell_max=5000, pix_size=0.25, N=1024):
         
+    '''
+    bins 2D maps to 1D power spectra
+    
+    returns a dictionary of 1D spectra in ell space
+    
+    Inputs:
+    ****************************************************************************
+    maps_dict [dictionary of 2D array]: dictionary of TT, TE, EE, etc 2D maps in ell space
+    delta_ell [int]: bin size for spectra
+    ell_max [int]: maximum ell the calculation goes out to
+    pix_size [float]: the pixel size of the maps in arcmin
+    N [int]: number of pixels in a map
+    ****************************************************************************
+    
+    Outputs:
+    ****************************************************************************
+    ell_array [1D array]: the array of bins that coincide with the power spectra
+    Cl_spec_dict [dictionary of 1D array]: dictionary of band powers for TT, TE, EE, etc
+    ****************************************************************************    
+    '''
+        
     import numpy as np
     
     N=int(N)
@@ -1709,12 +2224,16 @@ def bin_maps_to_1d(maps_dict, delta_ell=50, ell_max=5000, pix_size=0.25, N=1024)
     CL_array_EB = np.zeros(N_bins)
     CL_array_TB = np.zeros(N_bins)    
    
+
+    maps_dict_squared = {}
+    maps_dict_squared['TT'] = np.real(np.conj(maps_dict['TT'])*maps_dict['TT'])
+    
     # fill out the spectra
     i = 0
     while (i < N_bins):
         ell_array[i] = (i + 0.5) * delta_ell
         inds_in_bin = ((ell2d >= (i* delta_ell)) * (ell2d < ((i+1)* delta_ell))).nonzero()
-        CL_array_TT[i] = np.mean(maps_dict['TT'][inds_in_bin])
+        CL_array_TT[i] = np.mean(maps_dict_squared['TT'][inds_in_bin])
         
         if 'TT' in maps_dict_keys and 'EE' in maps_dict_keys:
             CL_array_EE[i] = np.mean(maps_dict['EE'][inds_in_bin])
@@ -1812,7 +2331,27 @@ def bin_maps_to_1d(maps_dict, delta_ell=50, ell_max=5000, pix_size=0.25, N=1024)
 #    # return the power spectrum and ell bins
 #    return(ell_array,Cl_spec_dict)    
     
-def deproject_delta_function(Emap, Bmap, theta_ell):
+def deconvolve_delta_function(Emap, Bmap, theta_ell):
+    
+    '''
+    deconvolves a delta function from E and B maps
+    
+    returns E and B maps
+    
+    Inputs:
+    ****************************************************************************
+    Emap [2D array]: the E map made from combining FFT's of Q and U maps
+    Bmap [2D array]: the B map made from combining FFT's of Q and U maps
+    theta_ell [2D array]: the angle in ell space defined by arctan(ly,lx)
+    ****************************************************************************
+    
+    Outputs:
+    ****************************************************************************
+    Emap [2D array]: the E map with a delta function removed
+    Bmap [2D array]: the B map with a delta function removed
+    ****************************************************************************    
+    '''
+    
     import numpy as np
     
     deproject_E = np.sin(2*theta_ell) + np.cos(2*theta_ell)
@@ -1823,7 +2362,28 @@ def deproject_delta_function(Emap, Bmap, theta_ell):
     
     return (Emap, Bmap) 
 
-def deproject_beam(Qmap_fft, Umap_fft, theta_ell, inst_beam_1):
+def deconvolve_beam(Qmap_fft, Umap_fft, theta_ell, inst_beam_1):
+    
+    '''
+    deconvolves the instrument beam from the E and B maps
+    
+    returns a tuple of E and B maps with the instrument beams removed
+    
+    Inputs:
+    ****************************************************************************
+    Qmap_fft [2D array]: the 2D FFT of the Q map
+    Umap_fft [2D array]: the 2D FFT of the U map
+    theta_ell [2D array]: the angle in ell space defined by arctan(ly,lx)
+    inst_beam_1 [2D array]: the 2D FFt of the instrument beam 
+    ****************************************************************************
+    
+    Outputs:
+    ****************************************************************************
+    Emap [2D array]: the E map with the instrument beam removed
+    Bmap [2D array]: the B map with the instrument beam removed
+    ****************************************************************************
+    '''
+    
     import numpy as np
     
     #deconvolve beam to get true EB maps
@@ -1835,7 +2395,29 @@ def deproject_beam(Qmap_fft, Umap_fft, theta_ell, inst_beam_1):
     
     return (Emap, Bmap)
 
-def deproject_input_maps(Emap_fft, Bmap_fft, unconvolved_Qmap_fft, unconvolved_Umap_fft, theta_ell):
+def deconvolve_input_maps(Emap_fft, Bmap_fft, unconvolved_Qmap_fft, unconvolved_Umap_fft, theta_ell):
+    
+    '''
+    deconvolves the pixelized Q and U maps from the E and B maps that contain delta function biases left over from taking a 2D fft of a convolved beam map
+    
+    returns the deconvolved E and B maps
+    
+    Inputs:
+    ****************************************************************************
+    Emap_fft [2D array]: the E map made from the pixelized Q and U maps with the instrument beams
+    Bmap_fft [2D array]: the B map made from the pixelized Q and U maps with the instrument beams
+    unconvolved_Qmap_fft [2D array]: the pixelized Q map FFT's 
+    unconvolved_Umap_fft [2D array]: the pixelized U map FFT's
+    theta_ell [2D array]: the angle in ell space defined by arctan(ly,lx)
+    ****************************************************************************
+    
+    Outputs:
+    ****************************************************************************
+    Emap_dep [2D array]: the E map with the delta function bias removed
+    Bmap_dep [2D array]: the B map with the detla function bias removed
+    ****************************************************************************
+    '''
+    
     import numpy as np
     
     
@@ -1849,6 +2431,25 @@ def deproject_input_maps(Emap_fft, Bmap_fft, unconvolved_Qmap_fft, unconvolved_U
     return Emap_dep,Bmap_dep
 
 def unconvolved_map_ffts(unconvolved_beams_dict, sky_decomp):
+    
+    '''
+    Takes the 2D FFT of real space pixel maps that are not convolved with the instrument beam. This does not have the ability to contain a sky decomposition that are simulated CMB maps. The outputs are for removing delta function biases in the final results, especially for E and B maps.
+    
+    returns the pixelized 2D FFT's of the I, Q, U maps the focal plane detects
+    
+    Inputs:
+    ****************************************************************************
+    unconvolved_beams_dict [dictionary]: the on sky beam map of pixels that are not convolved with the instrument beam
+    sky_decomp [1D list]: the linear decomposition of the sky in terms of unit vector in I, Q, U space
+    ****************************************************************************
+    
+    Outputs:
+    ****************************************************************************
+    Imap_fft [2D array]: the pixelized I map the focal plane detects
+    Qmap_fft [2D array]: the pixelized Q map the focal plane detects
+    Umap_fft [2D array]: the pixelized U map the focal plane detects
+    ****************************************************************************
+    '''
     
     Imap = sky_decomp[0]*unconvolved_beams_dict['II'] + sky_decomp[1]*unconvolved_beams_dict['IQ'] + sky_decomp[2]*unconvolved_beams_dict['IU']
     Qmap = sky_decomp[0]*unconvolved_beams_dict['QI'] + sky_decomp[1]*unconvolved_beams_dict['QQ'] + sky_decomp[2]*unconvolved_beams_dict['QU']
@@ -1875,6 +2476,20 @@ def output_toml(path, filename, beam_matrix, binned_ell, binned_spectra_dict):
     
     '''
     Outputs the 3x3 beam matrix, 1d spectra, and the ell array used for binning to a toml file for interfacing with other codes. The filename need not have the .toml extention
+    
+    returns NA
+    
+    Inputs:
+    ****************************************************************************
+    path [string]: the absolute file path where the toml file should be saved to
+    filename [string]: the desired name of the saved output toml file
+    beam_matrix [2D array]: the 3x3 beam coupling matrix of 2D beam maps in real space
+    binned_ell [1D array]: the list of ell bins used to calculate spectra
+    binned_spectra_dict [dictionary]: dictionary of 1D spectra keyed by the names TT, TE, EE, etc 
+    ****************************************************************************
+    
+    Outputs:
+    NA
     '''
     
     #collect data into dictionary
