@@ -140,7 +140,7 @@ def calculate_crosstalk(det_dict, coupling_dict, freqs, pixel_size, perc_corr, N
 
     return convolved_coupled_beams
 
-def get_leakage_spectra(convolved_coupled_beams, pixel_size, N, beam_fwhm, sky_decomp, delta_ell, ell_max, choose_normalization):
+def get_leakage_spectra(convolved_coupled_beams, pixel_size, N, beam_fwhm, sky_decomp, delta_ell, ell_max, choose_normalization, plots=False):
     
     '''
     from a given beam coupling matrix, calculates the detector measurements of I, Q, and U maps using the sky_decomp, takes the 2D FFT and azimuthally averages to power spectra. This function does not deconvolve the delta function bias that is present in get_leakage_beams. This function then plots the 1D spectra along with the instrument beam provided by the input parameters with a user defined normalization chosen by choose_normalization.
@@ -166,7 +166,7 @@ def get_leakage_spectra(convolved_coupled_beams, pixel_size, N, beam_fwhm, sky_d
     ****************************************************************************
     '''  
     #make instrument beam
-    inst_beam_1 = offset_2d_gaussian_beam(N, pixel_size, beam_fwhm,0,0)
+   # inst_beam_1 = offset_2d_gaussian_beam(N, pixel_size, beam_fwhm,0,0)
     
     #Generate 1D power spectra from beam maps
     pix_size = pixel_size * 60. #pixel size in arcmin
@@ -179,7 +179,8 @@ def get_leakage_spectra(convolved_coupled_beams, pixel_size, N, beam_fwhm, sky_d
     binned_ell, binned_spectra_dict = bin_maps_to_1d(maps_dict, delta_ell=delta_ell, ell_max=ell_max, pix_size=pix_size, N=N)
 #    binned_ell, binned_spectra_dict = calculate_2d_spectra(Imap=Imap, Qmap=Qmap, Umap=Umap, delta_ell=delta_ell, ell_max=ell_max, pix_size=pix_size, N=N, unconvolved_beams=unconvolved_beams)
 
-    beam_maps_dict = calculate_2d_spectra(Imap=inst_beam_1, delta_ell=delta_ell, ell_max=ell_max, pix_size=pix_size, N=N)
+   # beam_maps_dict = calculate_2d_spectra(Imap=inst_beam_1, delta_ell=delta_ell, ell_max=ell_max, pix_size=pix_size, N=N)
+    beam_maps_dict = calculate_2d_spectra(Imap=Imap, delta_ell=delta_ell, ell_max=ell_max, pix_size=pix_size, N=N)
     binned_ell, beam_spectrum = bin_maps_to_1d(beam_maps_dict, delta_ell=delta_ell, ell_max=ell_max, pix_size=pix_size, N=N)
 
 
@@ -194,46 +195,47 @@ def get_leakage_spectra(convolved_coupled_beams, pixel_size, N, beam_fwhm, sky_d
         binned_spectra_dict['TB'] = binned_spectra_dict['TB'][1:] / np.max(np.abs(binned_spectra_dict['TB'][1:]))
         beam_spectrum['TT'] = beam_spectrum['TT'][1:] / np.max(beam_spectrum['TT'][1:])
 
+        if plots:
         #plot 
-        plt.semilogy( binned_ell[1:], beam_spectrum['TT'] )
-        plt.semilogy( binned_ell[1:], binned_spectra_dict['TT'] )
-        plt.semilogy( binned_ell[1:], binned_spectra_dict['EE'] )
-        plt.semilogy(binned_ell[1:], binned_spectra_dict['BB'])
-        auto_labels = ['Beam','TT','EE','BB']
-        plt.legend(auto_labels)
-        plt.title('Auto Spectra and Instrument Beam')
-        plt.ylabel('Window Function')
-        plt.xlabel('$\ell$')
-        #plt.ylim(3e-1,2)
-        plt.xlim(0,ell_max)#5000)
-        plt.show()
+            plt.semilogy( binned_ell[1:], beam_spectrum['TT'] )
+            plt.semilogy( binned_ell[1:], binned_spectra_dict['TT'] )
+            plt.semilogy( binned_ell[1:], binned_spectra_dict['EE'] )
+            plt.semilogy(binned_ell[1:], binned_spectra_dict['BB'])
+            auto_labels = ['Beam','TT','EE','BB']
+            plt.legend(auto_labels)
+            plt.title('Auto Spectra and Instrument Beam')
+            plt.ylabel('Window Function')
+            plt.xlabel('$\ell$')
+            #plt.ylim(3e-1,2)
+            plt.xlim(0,ell_max)#5000)
+            plt.show()
 
-        zero_line = np.zeros(len(binned_spectra_dict['TE']))
-        plt.plot( binned_ell[1:], binned_spectra_dict['TE'] )
-        plt.plot(binned_ell[1:], binned_spectra_dict['EB'])
-        plt.plot(binned_ell[1:], binned_spectra_dict['TB'])
-        plt.plot(binned_ell[1:], zero_line, color='gray')
-        cross_labels = ['T->E','E->B','T->B']
-        plt.legend(cross_labels)
-        plt.title('Leakage Spectra')
-        plt.ylabel('Window Function')
-        plt.xlabel('$\ell$')
-        #plt.ylim(-1,1)
-        plt.show()
+            zero_line = np.zeros(len(binned_spectra_dict['TE']))
+            plt.plot( binned_ell[1:], binned_spectra_dict['TE'] )
+            plt.plot(binned_ell[1:], binned_spectra_dict['EB'])
+            plt.plot(binned_ell[1:], binned_spectra_dict['TB'])
+            plt.plot(binned_ell[1:], zero_line, color='gray')
+            cross_labels = ['T->E','E->B','T->B']
+            plt.legend(cross_labels)
+            plt.title('Leakage Spectra')
+            plt.ylabel('Window Function')
+            plt.xlabel('$\ell$')
+            #plt.ylim(-1,1)
+            plt.show()
 
-        #Auto Power spectra as a fraction of the Instrument beam
-        plt.semilogy( binned_ell[1:], beam_spectrum['TT'] / beam_spectrum['TT'] )
-        plt.semilogy( binned_ell[1:], binned_spectra_dict['TT'] / beam_spectrum['TT'])
-        plt.semilogy( binned_ell[1:], binned_spectra_dict['EE'] / beam_spectrum['TT'])
-        plt.semilogy( binned_ell[1:], binned_spectra_dict['BB'] / beam_spectrum['TT'])
-        legend_labels = ['Beam','TT','EE','BB']
-        plt.legend(legend_labels)
-        plt.ylabel('Beam Window Function Fraction')
-        plt.xlabel('$\ell$')
-        plt.title('Fraction of Beam')
-        #plt.ylim(7e-1,1.3)
-        plt.xlim(0,ell_max)#5000)
-        plt.show()
+            #Auto Power spectra as a fraction of the Instrument beam
+            plt.semilogy( binned_ell[1:], beam_spectrum['TT'] / beam_spectrum['TT'] )
+            plt.semilogy( binned_ell[1:], binned_spectra_dict['TT'] / beam_spectrum['TT'])
+            plt.semilogy( binned_ell[1:], binned_spectra_dict['EE'] / beam_spectrum['TT'])
+            plt.semilogy( binned_ell[1:], binned_spectra_dict['BB'] / beam_spectrum['TT'])
+            legend_labels = ['Beam','TT','EE','BB']
+            plt.legend(legend_labels)
+            plt.ylabel('Beam Window Function Fraction')
+            plt.xlabel('$\ell$')
+            plt.title('Fraction of Beam')
+            #plt.ylim(7e-1,1.3)
+            plt.xlim(0,ell_max)#5000)
+            plt.show()
 
     else:
         #normalize to leakage study
@@ -256,50 +258,133 @@ def get_leakage_spectra(convolved_coupled_beams, pixel_size, N, beam_fwhm, sky_d
 
 
         #plot
-        plt.semilogy( binned_ell[1:], beam_spectrum['TT'] )
-        plt.semilogy( binned_ell[1:], binned_spectra_dict['TT'] )
-        plt.semilogy( binned_ell[1:], binned_spectra_dict['EE'] )
-        plt.semilogy(binned_ell[1:], binned_spectra_dict['BB'])
-        auto_labels = ['Beam','TT','EE','BB']
-        plt.legend(auto_labels)
-        plt.title('Auto Spectra and Instrument Beam')
-        plt.ylabel('Window Function')
-        plt.xlabel('$\ell$')
-        #plt.ylim(1e-1,1.3)
-        plt.xlim(0,ell_max)#5000)
-        plt.show()
+        if plots:
+            plt.semilogy( binned_ell[1:], beam_spectrum['TT'] )
+            plt.semilogy( binned_ell[1:], binned_spectra_dict['TT'] )
+            plt.semilogy( binned_ell[1:], binned_spectra_dict['EE'] )
+            plt.semilogy(binned_ell[1:], binned_spectra_dict['BB'])
+            auto_labels = ['Beam','TT','EE','BB']
+            plt.legend(auto_labels)
+            plt.title('Auto Spectra and Instrument Beam')
+            plt.ylabel('Window Function')
+            plt.xlabel('$\ell$')
+            #plt.ylim(1e-1,1.3)
+            plt.xlim(0,ell_max)#5000)
+            plt.show()
 
-        zero_line = np.zeros(len(binned_spectra_dict['TE']))
-        plt.plot( binned_ell[1:], binned_spectra_dict['TE'] )
-        plt.plot(binned_ell[1:], binned_spectra_dict['EB'])
-        plt.plot(binned_ell[1:], binned_spectra_dict['TB'])
-        plt.plot(binned_ell[1:], zero_line, color='gray')
-        cross_labels = ['TT->TE','EE->BB','TT->TB']
-        plt.legend(cross_labels)
-        plt.title('Leakage Spectra')
-        plt.ylabel('Window Function')
-        plt.xlabel('$\ell$')
-        #plt.ylim(-1e-3,1e-3)
-        plt.show()
+            zero_line = np.zeros(len(binned_spectra_dict['TE']))
+            plt.plot( binned_ell[1:], binned_spectra_dict['TE'] )
+            plt.plot(binned_ell[1:], binned_spectra_dict['EB'])
+            plt.plot(binned_ell[1:], binned_spectra_dict['TB'])
+            plt.plot(binned_ell[1:], zero_line, color='gray')
+            cross_labels = ['TT->TE','EE->BB','TT->TB']
+            plt.legend(cross_labels)
+            plt.title('Leakage Spectra')
+            plt.ylabel('Window Function')
+            plt.xlabel('$\ell$')
+            #plt.ylim(-1e-3,1e-3)
+            plt.show()
 
-        #Auto Power spectra as a fraction of the Instrument beam
-        plt.semilogy( binned_ell[1:], beam_spectrum['TT'] / beam_spectrum['TT'] )
-        plt.semilogy( binned_ell[1:], binned_spectra_dict['TT'] / beam_spectrum['TT'])
-        plt.semilogy( binned_ell[1:], binned_spectra_dict['EE'] / beam_spectrum['TT'])
-        plt.semilogy( binned_ell[1:], binned_spectra_dict['BB'] / beam_spectrum['TT'])
-        legend_labels = ['Beam','TT','EE','BB']
-        plt.legend(legend_labels)
-        plt.ylabel('Beam Window Function Fraction')
-        plt.xlabel('$\ell$')
-        plt.title('Fraction of Beam')
-        #plt.ylim(7e-1,1.3)
-        plt.xlim(0,ell_max)#5000)
-        plt.show()
+            #Auto Power spectra as a fraction of the Instrument beam
+            plt.semilogy( binned_ell[1:], beam_spectrum['TT'] / beam_spectrum['TT'] )
+            plt.semilogy( binned_ell[1:], binned_spectra_dict['TT'] / beam_spectrum['TT'])
+            plt.semilogy( binned_ell[1:], binned_spectra_dict['EE'] / beam_spectrum['TT'])
+            plt.semilogy( binned_ell[1:], binned_spectra_dict['BB'] / beam_spectrum['TT'])
+            legend_labels = ['Beam','TT','EE','BB']
+            plt.legend(legend_labels)
+            plt.ylabel('Beam Window Function Fraction')
+            plt.xlabel('$\ell$')
+            plt.title('Fraction of Beam')
+            #plt.ylim(7e-1,1.3)
+            plt.xlim(0,ell_max)#5000)
+            plt.show()
 
 
     #unconvolved_beams = beam_matrix
     #return beam maps and raw power spectra
-    return binned_ell, binned_spectra_dict
+    return binned_ell[1:], binned_spectra_dict
+
+def get_leakage_spectra2(convolved_coupled_beams, pixel_size, N, beam_fwhm, sky_decomp, delta_ell, ell_max, choose_normalization):
+    
+    #Cesiley's tweaks: made sure during normalization step, everything was just divided by the normalization factor once
+     #              : removed plotting
+        #           : added instrument beam TT to returns 
+    '''
+    from a given beam coupling matrix, calculates the detector measurements of I, Q, and U maps using the sky_decomp, takes the 2D FFT and azimuthally averages to power spectra. This function does not deconvolve the delta function bias that is present in get_leakage_beams. This function then plots the 1D spectra along with the instrument beam provided by the input parameters with a user defined normalization chosen by choose_normalization.
+    
+    returns plots and leakage spectra which are convolved with E and B maps (NOT solely the leakage beams!). returns an array of binned ells and a dictionary of spectra TT, EE, BB, TE, TB, and EB
+    
+    Inputs:
+    ****************************************************************************
+    convolved_coupled_beams [dictionary]: 3x3 beam coupling matrix
+    pixel_size [float]: size of each pixel in arcmin
+    N [int]: number of pixels along a map edge
+    beam_fwhm [float]: 3dB point of gaussian beam
+    sky_decomp [1D array]: a list of either the linear decomposition of the sky signal in IQU space or CMB realizations of I, Q, and U maps without instrument and observation effects
+    delta_ell [int]: bin size for calculating power spectra
+    ell_max [int]: maximum ell for power spectra calculation
+    choose_normalization [str or 0]: if string it will be a key of the autospectra (TT for example), this will normalize every leakage spectra to the peak of this particular autospectra. If 0 is entered, each spectra is peak normalized.
+    ****************************************************************************
+    
+    Outputs:
+    ****************************************************************************
+    binned_ell [1D array]: array of ell bins for averaging map powers
+    binned_spectra_dict [dictionary]: dictionary of TT, TE, EE, etc spectra
+    ****************************************************************************
+    '''
+    #make instrument beam
+    inst_beam_1 = offset_2d_gaussian_beam(N, pixel_size, beam_fwhm,0,0)
+    
+    #Generate 1D power spectra from beam maps
+    pix_size = pixel_size * 60. #pixel size in arcmin
+    Imap = sky_decomp[0] * convolved_coupled_beams['II'] + sky_decomp[1] * convolved_coupled_beams['IQ'] + sky_decomp[2] * convolved_coupled_beams['IU']
+    Qmap = sky_decomp[0] * convolved_coupled_beams['QI'] + sky_decomp[1] * convolved_coupled_beams['QQ'] + sky_decomp[2] * convolved_coupled_beams['QU']
+    Umap = sky_decomp[0] * convolved_coupled_beams['UI'] + sky_decomp[1] * convolved_coupled_beams['UQ'] + sky_decomp[2] * convolved_coupled_beams['UU']
+    
+    #This now returns just 2d maps dictionary
+    maps_dict = calculate_2d_spectra(Imap=Imap, Qmap=Qmap, Umap=Umap, delta_ell=delta_ell, ell_max=ell_max, pix_size=pix_size, N=N)
+    
+    binned_ell, binned_spectra_dict = bin_maps_to_1d(maps_dict, delta_ell=delta_ell, ell_max=ell_max, pix_size=pix_size, N=N)
+#    binned_ell, binned_spectra_dict = calculate_2d_spectra(Imap=Imap, Qmap=Qmap, Umap=Umap, delta_ell=delta_ell, ell_max=ell_max, pix_size=pix_size, N=N, unconvolved_beams=unconvolved_beams)
+
+    beam_maps_dict = calculate_2d_spectra(Imap=inst_beam_1, delta_ell=delta_ell, ell_max=ell_max, pix_size=pix_size, N=N)
+    binned_ell, beam_spectrum = bin_maps_to_1d(beam_maps_dict, delta_ell=delta_ell, ell_max=ell_max, pix_size=pix_size, N=N)
+
+
+    
+    if choose_normalization == 0:
+        #normalize all PS to 1
+        binned_spectra_dict['TT'] = binned_spectra_dict['TT'][1:] / np.nanmax(binned_spectra_dict['TT'][1:])
+        binned_spectra_dict['EE'] = binned_spectra_dict['EE'][1:] / np.nanmax(binned_spectra_dict['EE'][1:])
+        binned_spectra_dict['BB'] = binned_spectra_dict['BB'][1:] / np.nanmax(binned_spectra_dict['BB'][1:])
+        binned_spectra_dict['TE'] = binned_spectra_dict['TE'][1:] / np.nanmax(np.abs(binned_spectra_dict['TE'][1:]))
+        binned_spectra_dict['EB'] = binned_spectra_dict['EB'][1:] / np.nanmax(np.abs(binned_spectra_dict['EB'][1:]))
+        binned_spectra_dict['TB'] = binned_spectra_dict['TB'][1:] / np.nanmax(np.abs(binned_spectra_dict['TB'][1:]))
+        beam_spectrum['TT'] = beam_spectrum['TT'][1:] / np.nanmax(beam_spectrum['TT'][1:])
+
+    else:
+        #normalize to leakage study
+        if choose_normalization == 'TT':
+            norm_fac = binned_spectra_dict['TT'][1:]
+        elif choose_normalization == 'EE':
+            norm_fac = binned_spectra_dict['EE'][1:]
+        elif choose_normalization == 'BB':
+            norm_fac = binned_spectra_dict['BB'][1:]
+        else:
+            print('Please use either TT, EE, or BB keys to study leakage effects')
+
+        beam_spectrum['TT'] = beam_spectrum['TT'][1:] / np.nanmax(beam_spectrum['TT'][1:])
+        binned_spectra_dict['TT'] = binned_spectra_dict['TT'][1:] / norm_fac
+        binned_spectra_dict['EE'] = binned_spectra_dict['EE'][1:] / norm_fac
+        binned_spectra_dict['BB'] = binned_spectra_dict['BB'][1:] / norm_fac
+        binned_spectra_dict['TE'] = binned_spectra_dict['TE'][1:] / (norm_fac)
+        binned_spectra_dict['EB'] = binned_spectra_dict['EB'][1:] / (norm_fac)
+        binned_spectra_dict['TB'] = binned_spectra_dict['TB'][1:] / (norm_fac)
+
+
+    #unconvolved_beams = beam_matrix
+    #return beam maps and raw power spectra
+    return binned_ell[1:], binned_spectra_dict, beam_spectrum['TT']
 
 def get_leakage_beams(convolved_coupled_beams, beam_matrix, pixel_size, N, beam_fwhm, sky_decomp, delta_ell, ell_max, choose_normalization):
     '''
@@ -2132,7 +2217,7 @@ def calculate_2d_leakage_beams(Imap=None, Qmap=None, Umap=None, Qmap_deproj=None
     
     return maps_dict
 
-def bin_maps_to_1d(maps_dict, delta_ell=50, ell_max=5000, pix_size=0.25, N=1024):
+def bin_maps_to_1d(maps_dict, delta_ell=50, ell_max=5000, pix_size=0.25, N=1024, square_TT=False):
         
     '''
     bins 2D maps to 1D power spectra
@@ -2146,6 +2231,8 @@ def bin_maps_to_1d(maps_dict, delta_ell=50, ell_max=5000, pix_size=0.25, N=1024)
     ell_max [int]: maximum ell the calculation goes out to
     pix_size [float]: the pixel size of the maps in arcmin
     N [int]: number of pixels in a map
+    square_TT [bool]: find the magnitude squared of TT. Use False if maps_dict already has
+                      magnitude squared of TT (i.e. if maps_dict is the output of calculate_2d_spectra)
     
     To not produce nans, N must be even and N * pix_size >= 244.5
     ****************************************************************************
@@ -2171,6 +2258,7 @@ def bin_maps_to_1d(maps_dict, delta_ell=50, ell_max=5000, pix_size=0.25, N=1024)
     ell2d_flat_sorted = np.sort(ell2d.flat)
     min_delta_ell = int(max(np.diff(ell2d_flat_sorted))/2 + 1)
     delta_ell = max(delta_ell, min_delta_ell)
+    print('delta_ell = ' + str(delta_ell))
     
     # make an array to hold the power spectrum results
     N_bins = int(ell_max/delta_ell)
@@ -2182,9 +2270,13 @@ def bin_maps_to_1d(maps_dict, delta_ell=50, ell_max=5000, pix_size=0.25, N=1024)
     CL_array_EB = np.zeros(N_bins)
     CL_array_TB = np.zeros(N_bins)    
    
-
-    maps_dict_squared = {}
-    maps_dict_squared['TT'] = np.real(np.conj(maps_dict['TT'])*maps_dict['TT'])
+    # from calculate_2d_spectra, maps_dict['TT'] = np.real(np.conj(Imap_fft) * Imap_fft))
+    # so if using calculate_2d_spectra leave square_TT=False
+    if square_TT:
+        maps_dict_squared = {}
+        maps_dict_squared['TT'] = np.real(np.conj(maps_dict['TT'])*maps_dict['TT'])
+    else:
+        maps_dict_squared['TT'] = maps_dict['TT']
     
     # fill out the spectra
     i = 0
