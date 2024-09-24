@@ -2272,8 +2272,8 @@ def bin_maps_to_1d(maps_dict, delta_ell=50, ell_max=5000, pix_size=0.25, N=1024,
    
     # from calculate_2d_spectra, maps_dict['TT'] = np.real(np.conj(Imap_fft) * Imap_fft))
     # so if using calculate_2d_spectra leave square_TT=False
+    maps_dict_squared = {}
     if square_TT:
-        maps_dict_squared = {}
         maps_dict_squared['TT'] = np.real(np.conj(maps_dict['TT'])*maps_dict['TT'])
     else:
         maps_dict_squared['TT'] = maps_dict['TT']
