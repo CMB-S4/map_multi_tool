@@ -1,7 +1,6 @@
-def generate_fiducial(ombh2 = 0.022, omch2 = 0.12,
+def generate_fiducial(ombh2 = 0.022, omch2 = 0.12, H0 = 68,
                      tau = 0.07, As = 2.2e-9, ns = 0.96, 
-                     mnu = 0.06, nnu = 3.046, 
-                      thetastar = 0.010409, lmax = 5100, lmin = 10):
+                     mnu = 0.06, nnu = 3.046, lmax = 5100):
     
     '''
     Generates a Cobaya fiducial TT power spectrum beginning at l=10
@@ -14,8 +13,7 @@ def generate_fiducial(ombh2 = 0.022, omch2 = 0.12,
     
     #Using cobaya provider to provide fiducial
     fiducial_params = {
-        'ombh2': ombh2, 'omch2': omch2, 
-        'thetastar': thetastar, 'tau': tau,
+        'ombh2': ombh2, 'omch2': omch2, 'H0': H0, 'tau': tau,
         'As': As, 'ns': ns,
         'mnu': mnu, 'nnu': nnu}
 
@@ -31,15 +29,13 @@ def generate_fiducial(ombh2 = 0.022, omch2 = 0.12,
     model_fiducial = get_model(info_fiducial)
 
     model_fiducial.add_requirements({"Cl": {'tt': lmax}})
-#    model_fiducial.add_requirements({"Cl":{'te':lmax}})
-#   model_fiducial.add_requirements({"Cl":{'ee':lmax}})
     model_fiducial.logposterior({})
     Cls = model_fiducial.provider.get_Cl(ell_factor=False, units="muK2")
     
     Cl_fid = {}
-    Cl_fid['TT'] = Cls['tt'][lmin:lmax+1]
-    Cl_fid['TE'] = Cls['te'][lmin:lmax+1]
-    Cl_fid['EE'] = Cls['ee'][lmin:lmax+1]
+    Cl_fid['TT'] = Cls['tt'][10:lmax+1]
+    Cl_fid['TE'] = Cls['te'][10:lmax+1]
+    Cl_fid['EE'] = Cls['ee'][10:lmax+1]
     
 
     
