@@ -37,5 +37,4 @@ The map multi tool generates composite focal plane maps in IQU space from the ob
 * Each detector has unit response to the point source (flat and equal frequency bands)
 * Crosstalk for all detectors at the same percent level
 * Gaussian instrument beam
-* Listed examples assume a purely temperature sky
 * Gaussian Likelihoods (for Cobaya fitting)
